@@ -9,7 +9,7 @@ out="${2:-out}"
 shift $(( $# > 1 ? 2 : 1 ))
 targets=("$@")
 if [ ${#targets[@]} -eq 0 ]; then
-  targets=(linux-x64 linux-arm64 macos-arm64 windows-x64)
+  targets=(linux-x64 linux-arm64 macos-x64 macos-arm64 windows-x64)
 fi
 
 mkdir -p "$out"
@@ -18,6 +18,7 @@ for t in "${targets[@]}"; do
     # The baseline x64 builds run on CPUs without AVX2.
     linux-x64) bun_target=bun-linux-x64-baseline; file=agent-auth-linux-x64 ;;
     linux-arm64) bun_target=bun-linux-arm64; file=agent-auth-linux-arm64 ;;
+    macos-x64) bun_target=bun-darwin-x64; file=agent-auth-macos-x64 ;;
     macos-arm64) bun_target=bun-darwin-arm64; file=agent-auth-macos-arm64 ;;
     windows-x64) bun_target=bun-windows-x64-baseline; file=agent-auth-windows-x64.exe ;;
     *) echo "unknown target: $t" >&2; exit 1 ;;

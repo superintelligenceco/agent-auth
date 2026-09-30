@@ -4,6 +4,8 @@ name: Ship
 # - a multi-arch (amd64, arm64) server image on ghcr.io
 # - standalone agent-auth executables for Linux, macOS and Windows
 # - the npm package tarball of the SDK and CLI
+# - SPDX SBOMs for the source tree and the image, build provenance attestations for every asset and
+#   the image, and a cosign keyless signature on the image
 # A pushed v* tag publishes a GitHub Release with these assets and SHA256SUMS.
 # A manual run uploads the same files as workflow artifacts and pushes :edge and :sha-<commit> images.
 
@@ -144,6 +146,10 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -182,6 +188,28 @@ jobs:
           docker run -d --name agent-auth -p 127.0.0.1:8787:8787 \
             -e AGENT_AUTH_ADMIN_TOKEN "$REF"
           scripts/smoke.sh http://127.0.0.1:8787 || { docker logs agent-auth; exit 1; }
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Sign the image
+        env:
+          REF: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "$REF"
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom/agent-auth-image.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom-image
+          path: sbom/
+          if-no-files-found: error
       - name: Summary
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
@@ -195,25 +223,72 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+  scan:
+    name: Scan image
+    needs: image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    env:
+      REF: ghcr.io/${{ github.repository }}@${{ needs.image.outputs.digest }}
+      TRIVY_USERNAME: ${{ github.actor }}
+      TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REF }}
+          format: sarif
+          output: trivy.sarif
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-image
+      - name: Fail on critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REF }}
+          format: table
+          ignore-unfixed: true
+          severity: CRITICAL
+          exit-code: "1"
+          skip-setup-trivy: true
+
   assets:
     name: Release assets
-    needs: [sdk, binaries, verify-binaries, image]
+    needs: [sdk, binaries, verify-binaries, image, scan]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: .
+          format: spdx-json
+          output-file: ${{ runner.temp }}/agent-auth-source.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: assets
           merge-multiple: true
+      - run: mv "$RUNNER_TEMP/agent-auth-source.spdx.json" assets/
       - name: Checksums
         working-directory: assets
         run: |
           sha256sum -- * > SHA256SUMS
           cat SHA256SUMS
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: assets/agent-auth-*
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-assets
@@ -236,3 +311,26 @@ jobs:
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --notes-file notes.md
           fi
           gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber assets/*
+
+  install:
+    name: install.sh on ${{ matrix.os }}
+    if: github.ref_type == 'tag'
+    needs: assets
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the release with install.sh
+        env:
+          AGENT_AUTH_VERSION: ${{ github.ref_name }}
+          AGENT_AUTH_INSTALL_DIR: ${{ runner.temp }}/bin
+        run: |
+          sh install.sh
+          test "v$("$AGENT_AUTH_INSTALL_DIR/agent-auth" --version)" = "$AGENT_AUTH_VERSION"
