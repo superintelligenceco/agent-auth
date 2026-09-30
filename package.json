@@ -79,7 +79,7 @@
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^22.20.4",
+    "@types/node": "^26.6.3",
     "@vitest/coverage-v8": "^4.1.11",
     "fast-check": "^4.10.2",
     "tsx": "^4.23.15",
