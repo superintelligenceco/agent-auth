@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file. The format foll
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.0](https://github.com/superintelligenceco/agent-auth/compare/agent-auth-v0.1.0...agent-auth-v0.2.0) (2026-09-30)
+
+
+### Features
+
+* **audit:** add hash-chained, append-only audit log ([b2f118a](https://github.com/superintelligenceco/agent-auth/commit/b2f118a4e7bb8880c1a6389b7e69e116049bcbee))
+* **cli:** add agent-auth command ([4308341](https://github.com/superintelligenceco/agent-auth/commit/4308341ee52367a3a3269712964756e8c1f37d80))
+* **examples:** add credential proxy and MCP server examples ([909090a](https://github.com/superintelligenceco/agent-auth/commit/909090a0ecf18d2c5968303c398cefe4b49e07f0))
+* **middleware:** add verify() middleware for tool servers ([13cd773](https://github.com/superintelligenceco/agent-auth/commit/13cd7737bc168e5d6fde080fdffff7ff7250d79c))
+* **scope:** add scope grammar, matcher and attenuation check ([13a3695](https://github.com/superintelligenceco/agent-auth/commit/13a36951bb4164faa40d57626047277f287f75ae))
+* **server:** add REST API, HTTP client and OpenAPI spec ([1e4d3b6](https://github.com/superintelligenceco/agent-auth/commit/1e4d3b6d7020d49eabad955f6265c6cd4de72818))
+* **service:** add grants, attenuation, revocation and approvals ([51fb171](https://github.com/superintelligenceco/agent-auth/commit/51fb1713f9efca431e56034fd3761ae3f050377e))
+* **tokens:** sign agent tokens with Ed25519 ([4317d5c](https://github.com/superintelligenceco/agent-auth/commit/4317d5ca34754f7a2728134f5debe2b38699c7dd))
+
 ## [Unreleased]
 
 ## [0.1.0] - 2026-09-30
