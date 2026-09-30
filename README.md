@@ -12,9 +12,59 @@ An agent can derive a narrower token for a sub-agent, but never a broader one. Y
 token together with everything derived from it, and every decision lands in a hash-chained audit log
 that detects tampering.
 
+## Install
+
+Each release ships a server image, standalone executables and the npm package.
+
+### Container image
+
+The image runs the server on port 8787 and keeps its database and signing key in `/data`. It
+supports `linux/amd64` and `linux/arm64`.
+
+```sh
+export AGENT_AUTH_ADMIN_TOKEN=$(openssl rand -hex 24)
+docker run -d --name agent-auth -p 127.0.0.1:8787:8787 \
+  -e AGENT_AUTH_ADMIN_TOKEN -v agent-auth-data:/data \
+  ghcr.io/superintelligenceco/agent-auth:latest
+```
+
+Tags: `:latest` and `:vX.Y.Z` for releases, `:edge` for the latest build from `main`, and
+`:sha-<commit>` for a specific build.
+
+### Standalone executable
+
+The `agent-auth` executable contains the CLI and the server and needs no Node.js install. Pick the
+asset for your platform:
+
+| Platform | Asset |
+| --- | --- |
+| Linux x64 | `agent-auth-linux-x64` |
+| Linux arm64 | `agent-auth-linux-arm64` |
+| macOS Apple silicon | `agent-auth-macos-arm64` |
+| Windows x64 | `agent-auth-windows-x64.exe` |
+
+```sh
+base=https://github.com/superintelligenceco/agent-auth/releases/latest/download
+curl -fsSLO "$base/agent-auth-linux-x64" -fsSLO "$base/SHA256SUMS"
+sha256sum --check --ignore-missing SHA256SUMS
+chmod +x agent-auth-linux-x64 && sudo mv agent-auth-linux-x64 /usr/local/bin/agent-auth
+agent-auth --version
+```
+
+### npm package
+
+The SDK and CLI ship as an npm tarball, `agent-auth-<version>.tgz`, on each release:
+
+```sh
+gh release download -R superintelligenceco/agent-auth -p 'agent-auth-*.tgz'
+npm install ./agent-auth-*.tgz
+```
+
+The package needs Node.js 20 or later.
+
 ## Quickstart
 
-You need Node.js 20 or later.
+To build from source, you need Node.js 20 or later. To use a release instead, see [Install](#install).
 
 ```sh
 git clone https://github.com/superintelligenceco/agent-auth && cd agent-auth
@@ -271,8 +321,8 @@ with it once a human approves.
 
 ## SDK
 
-agent-auth is not published to npm yet. Build it from source with `npm run build`; the examples
-below use the package name it will have once published.
+agent-auth is not on the npm registry. Install the tarball from a release (see
+[npm package](#npm-package)) or build it from source with `npm run build`.
 
 ```ts
 import { AgentAuthClient } from "agent-auth";
@@ -397,6 +447,17 @@ npm run test:coverage
 ```
 
 Integration tests start real servers on random ports and generate keys at runtime.
+
+To build the standalone executables, install [Bun](https://bun.sh) and run:
+
+```sh
+scripts/build-binaries.sh "$(node -p 'require("./package.json").version')" out
+AGENT_AUTH_ADMIN_TOKEN=local-admin-token-0123 out/agent-auth-linux-x64 serve &
+AGENT_AUTH_ADMIN_TOKEN=local-admin-token-0123 scripts/smoke.sh   # grant, check, revoke, audit
+```
+
+The executables run on Bun, so they use its built-in `bun:sqlite` driver instead of
+`better-sqlite3`.
 
 ## Contributing
 

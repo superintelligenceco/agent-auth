@@ -74,6 +74,27 @@ numbers are generated from these messages.
 Open a pull request against `main` and fill in the template. A maintainer listed in
 `.github/CODEOWNERS` reviews it. CI must pass before merge.
 
+## Releases
+
+A pushed `v*` tag publishes a release. The `Ship` workflow (`.github/workflows/ship.yml`) builds
+the container image, the standalone executables and the npm tarball, smoke-tests each of them,
+pushes the image to GHCR and creates the GitHub Release with the assets and `SHA256SUMS`. To cut a
+release:
+
+1. Set `version` in `package.json` and `package-lock.json` (`npm version X.Y.Z --no-git-tag-version`).
+2. Rename the `Unreleased` section of `CHANGELOG.md` to `[X.Y.Z] - YYYY-MM-DD`. The release notes
+   come from that section.
+3. Commit as `chore(release): X.Y.Z`, merge to `main`, then tag and push:
+   `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+The workflow fails if the tag does not match `package.json`. To build everything without a
+release, run the workflow manually (`gh workflow run ship.yml`); it uploads the files as workflow
+artifacts and pushes the `:edge` and `:sha-<commit>` image tags.
+
+The project uses tag-triggered releases instead of release-please, because GitHub Actions in this
+organization cannot open pull requests, and tags that a workflow pushes with `GITHUB_TOKEN` do not
+start other workflows.
+
 ## License
 
 By contributing, you agree that your contributions are licensed under the
