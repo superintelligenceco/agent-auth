@@ -15,7 +15,8 @@ import {
   scopeSubset,
 } from "../../src/scope/index.js";
 
-const RUNS = { numRuns: 2000 };
+// The nightly workflow raises FC_NUM_RUNS for a deeper search.
+const RUNS = { numRuns: Number(process.env.FC_NUM_RUNS ?? 2000) };
 
 // Small alphabets make collisions (and therefore interesting cases) likely.
 const glob = fc
