@@ -33,13 +33,23 @@ Tags: `:latest` and `:vX.Y.Z` for releases, `:edge` for the latest build from `m
 
 ### Standalone executable
 
-The `agent-auth` executable contains the CLI and the server and needs no Node.js install. Pick the
-asset for your platform:
+The `agent-auth` executable contains the CLI and the server and needs no Node.js install. To
+install the right one for your Linux or macOS machine, run the installer. It checks the download
+against the release `SHA256SUMS`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/superintelligenceco/agent-auth/main/install.sh | sh
+agent-auth --version
+```
+
+Set `AGENT_AUTH_VERSION=v0.2.0` to pin a release and `AGENT_AUTH_INSTALL_DIR` to choose the target
+directory. To download an asset yourself, pick the one for your platform:
 
 | Platform | Asset |
 | --- | --- |
 | Linux x64 | `agent-auth-linux-x64` |
 | Linux arm64 | `agent-auth-linux-arm64` |
+| macOS Intel | `agent-auth-macos-x64` |
 | macOS Apple silicon | `agent-auth-macos-arm64` |
 | Windows x64 | `agent-auth-windows-x64.exe` |
 
@@ -51,13 +61,17 @@ chmod +x agent-auth-linux-x64 && sudo mv agent-auth-linux-x64 /usr/local/bin/age
 agent-auth --version
 ```
 
+Each asset has a build provenance attestation. To verify one, run
+`gh attestation verify agent-auth-linux-x64 -R superintelligenceco/agent-auth`.
+
 ### npm package
 
-The SDK and CLI ship as an npm tarball, `agent-auth-<version>.tgz`, on each release:
+The SDK and CLI ship on npm as
+[`@superintelligenceco/agent-auth`](https://www.npmjs.com/package/@superintelligenceco/agent-auth):
 
 ```sh
-gh release download -R superintelligenceco/agent-auth -p 'agent-auth-*.tgz'
-npm install ./agent-auth-*.tgz
+npm install @superintelligenceco/agent-auth
+npx @superintelligenceco/agent-auth --version
 ```
 
 The package needs Node.js 20 or later.
@@ -272,7 +286,7 @@ The `verify()` middleware does this for [Hono](https://hono.dev):
 
 ```ts
 import { Hono } from "hono";
-import { onlineVerifier, verify } from "agent-auth";
+import { onlineVerifier, verify } from "@superintelligenceco/agent-auth";
 
 const app = new Hono();
 const verifier = onlineVerifier({ baseUrl: "http://127.0.0.1:8787" });
@@ -325,7 +339,7 @@ agent-auth is not on the npm registry. Install the tarball from a release (see
 [npm package](#npm-package)) or build it from source with `npm run build`.
 
 ```ts
-import { AgentAuthClient } from "agent-auth";
+import { AgentAuthClient } from "@superintelligenceco/agent-auth";
 
 const admin = new AgentAuthClient({
   baseUrl: "http://127.0.0.1:8787",

@@ -6,6 +6,7 @@ exclude = [
   "^https://raw\\.githubusercontent\\.com/superintelligenceco/agent-auth/",
   "^https://codespaces\\.new/",
   "^https://www\\.bestpractices\\.dev",
+  "^https://www\\.npmjs\\.com/",
 ]
 exclude_path = ["node_modules", "CHANGELOG.md", "docs/node_modules"]
 accept = ["200..=299", "429"]

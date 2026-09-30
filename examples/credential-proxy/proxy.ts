@@ -3,7 +3,7 @@
  * into requests that the presented agent token permits. The agent never sees
  * the key: it sends its agent token, and the proxy swaps it for the secret.
  *
- * In your own project, import from "agent-auth" instead of "../../src/index.js".
+ * In your own project, import from "@superintelligenceco/agent-auth" instead of "../../src/index.js".
  */
 import { type Context, Hono } from "hono";
 import { type AccessRequest, APPROVAL_HEADER, type Verifier, verify } from "../../src/index.js";

@@ -6,7 +6,8 @@ name: Ship
 # - the npm package tarball of the SDK and CLI
 # - SPDX SBOMs for the source tree and the image, build provenance attestations for every asset and
 #   the image, and a cosign keyless signature on the image
-# A pushed v* tag publishes a GitHub Release with these assets and SHA256SUMS.
+# A pushed v* tag publishes a GitHub Release with these assets and SHA256SUMS, then publishes the
+# package to npm as @superintelligenceco/agent-auth with provenance.
 # A manual run uploads the same files as workflow artifacts and pushes :edge and :sha-<commit> images.
 
 on:
@@ -55,13 +56,20 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - run: npm ci
       - run: npm run build
-      - run: mkdir -p out && npm pack --pack-destination out
+      - name: Pack
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p out
+          npm pack --pack-destination out
+          # Release assets share the agent-auth- prefix, so rename the scoped tarball.
+          mv "out/superintelligenceco-agent-auth-$VERSION.tgz" "out/agent-auth-$VERSION.tgz"
       - name: Smoke test the tarball
         run: |
           mkdir /tmp/consumer && cd /tmp/consumer
           npm init -y >/dev/null
           npm install "$GITHUB_WORKSPACE"/out/agent-auth-*.tgz
-          node -e 'import("agent-auth").then((m) => { if (!m.AgentAuthClient) process.exit(1) })'
+          node -e 'import("@superintelligenceco/agent-auth").then((m) => { if (!m.AgentAuthClient) process.exit(1) })'
           npx agent-auth --version
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -311,6 +319,29 @@ jobs:
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --notes-file notes.md
           fi
           gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber assets/*
+
+  npm:
+    name: Publish to npm
+    if: github.ref_type == 'tag'
+    needs: assets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm run build
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --provenance
 
   install:
     name: install.sh on ${{ matrix.os }}

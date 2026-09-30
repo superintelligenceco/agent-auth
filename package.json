@@ -1,5 +1,5 @@
 {
-  "name": "agent-auth",
+  "name": "@superintelligenceco/agent-auth",
   "version": "0.1.0",
   "description": "Scoped, expiring, auditable credentials for AI agents that act on a user's behalf.",
   "license": "Apache-2.0",
@@ -8,7 +8,7 @@
     "type": "git",
     "url": "git+https://github.com/superintelligenceco/agent-auth.git"
   },
-  "homepage": "https://github.com/superintelligenceco/agent-auth#readme",
+  "homepage": "https://superintelligenceco.github.io/agent-auth/",
   "bugs": "https://github.com/superintelligenceco/agent-auth/issues",
   "keywords": [
     "ai-agents",
@@ -49,6 +49,10 @@
     "dist",
     "openapi.yaml"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

@@ -7,7 +7,7 @@
  * `approval=required` return an approval id; the agent retries with it once a
  * human approves.
  *
- * In your own project, import from "agent-auth" instead of "../../src/index.js".
+ * In your own project, import from "@superintelligenceco/agent-auth" instead of "../../src/index.js".
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
