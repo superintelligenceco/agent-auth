@@ -1,0 +1,82 @@
+{
+  "name": "agent-auth",
+  "version": "0.1.0",
+  "description": "Scoped, expiring, auditable credentials for AI agents that act on a user's behalf.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/superintelligenceco/agent-auth.git"
+  },
+  "homepage": "https://github.com/superintelligenceco/agent-auth#readme",
+  "bugs": "https://github.com/superintelligenceco/agent-auth/issues",
+  "keywords": [
+    "ai-agents",
+    "authorization",
+    "delegation",
+    "capabilities",
+    "jwt",
+    "audit-log",
+    "mcp"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "agent-auth": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./scope": {
+      "types": "./dist/scope/index.d.ts",
+      "default": "./dist/scope/index.js"
+    },
+    "./middleware": {
+      "types": "./dist/middleware.d.ts",
+      "default": "./dist/middleware.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    }
+  },
+  "files": [
+    "dist",
+    "openapi.yaml"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "check": "biome check .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "start": "node dist/cli.js serve"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.17",
+    "better-sqlite3": "^12.11.1",
+    "hono": "^4.13.11",
+    "jose": "^6.2.12",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^22.20.4",
+    "fast-check": "^4.10.2",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "yaml": "^2.9.1",
+    "vitest": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.11"
+  }
+}

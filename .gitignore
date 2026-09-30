@@ -1,0 +1,26 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Runtime data: databases and signing keys
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.pem
+
+# Environment and local tooling
+.env
+.env.*
+!.env.example
+.venv/
+.cache/
+.eslintcache
+.idea/
+.vscode/
+*.log
+.DS_Store
