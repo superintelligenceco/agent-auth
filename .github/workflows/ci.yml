@@ -48,6 +48,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:coverage
+      - name: Coverage summary
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 22
+        run: node scripts/coverage-summary.mjs >> "$GITHUB_STEP_SUMMARY"
       - name: Upload coverage report
         if: matrix.os == 'ubuntu-latest' && matrix.node == 22
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -59,6 +62,9 @@ jobs:
   docker:
     name: Docker image
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,6 +76,47 @@ jobs:
         run: |
           docker run -d --name agent-auth -p 127.0.0.1:8787:8787 -e AGENT_AUTH_ADMIN_TOKEN agent-auth:ci
           scripts/smoke.sh http://127.0.0.1:8787 || { docker logs agent-auth; exit 1; }
+      - name: Compose quickstart
+        env:
+          AGENT_AUTH_ADMIN_TOKEN: ci-admin-token-0123456789
+        run: |
+          docker rm -f agent-auth
+          docker compose up -d --wait
+          scripts/smoke.sh http://127.0.0.1:8787 || { docker compose logs; exit 1; }
+          docker compose down -v
+      - name: Trivy scan (SARIF)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: agent-auth:ci
+          format: sarif
+          output: trivy.sarif
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+      - name: Upload Trivy results
+        # Pull requests from forks and Dependabot get a read-only token.
+        if: github.event_name != 'pull_request'
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-ci
+      - name: Fail on critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: agent-auth:ci
+          format: table
+          ignore-unfixed: true
+          severity: CRITICAL
+          exit-code: "1"
+          skip-setup-trivy: true
+
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
 
   binary:
     name: Standalone executable
