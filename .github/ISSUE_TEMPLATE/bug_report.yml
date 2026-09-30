@@ -1,0 +1,54 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. If the bug lets a token do more than its scopes allow,
+        do not file it here. Follow [SECURITY.md](https://github.com/superintelligenceco/agent-auth/blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include the exact command, request or code, and the output you got.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The smallest set of scopes and requests that shows the problem.
+      placeholder: |
+        1. agent-auth grant --principal alice --agent bot --scope '...'
+        2. agent-auth check --token "$TOKEN" --action ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: agent-auth version or commit
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: How you run it
+      options:
+        - Node.js (from source)
+        - Docker image
+        - As a library in another project
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version and OS
+      placeholder: Node 22.12, Ubuntu 24.04
