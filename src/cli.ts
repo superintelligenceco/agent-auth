@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { parseArgs } from "node:util";
 import { type AuditEntry, verifyChain } from "./audit.js";
 import { AgentAuthClient, AgentAuthError } from "./client.js";
@@ -60,12 +61,14 @@ Global options
   --json                     Print raw JSON
   -q, --quiet                Print only the essential value (for example the token)
   -h, --help                 Show this help
+  -v, --version              Print the version
 
 Exit codes: 0 success or allow, 1 error, 3 deny, 4 approval required.
 `;
 
 const options = {
   help: { type: "boolean", short: "h" },
+  version: { type: "boolean", short: "v" },
   json: { type: "boolean" },
   quiet: { type: "boolean", short: "q" },
   url: { type: "string" },
@@ -101,6 +104,16 @@ type Values = ReturnType<
 >["values"];
 
 class UsageError extends Error {}
+
+/** Set by `bun build --define` in the standalone executables. */
+declare const AGENT_AUTH_VERSION: string | undefined;
+
+/** Reads the version from package.json, which sits one level above both src/ and dist/. */
+function version(): string {
+  if (typeof AGENT_AUTH_VERSION === "string") return AGENT_AUTH_VERSION;
+  const require = createRequire(import.meta.url);
+  return (require("../package.json") as { version: string }).version;
+}
 
 const env = process.env;
 
@@ -197,6 +210,10 @@ async function main(argv: string[]): Promise<number> {
     strict: true,
   });
   const [cmd, sub, ...rest] = positionals;
+  if (v.version) {
+    out(version());
+    return 0;
+  }
   if (v.help || !cmd) {
     out(HELP);
     return v.help ? 0 : 1;

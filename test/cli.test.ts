@@ -44,6 +44,12 @@ async function cli(args: string[], env: Record<string, string> = {}) {
 const asAdmin = { AGENT_AUTH_ADMIN_TOKEN: ADMIN };
 
 describe("agent-auth CLI", () => {
+  it("prints the version", async () => {
+    const res = await cli(["--version"]);
+    expect(res.code).toBe(0);
+    expect(res.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
   it("prints help", async () => {
     const res = await cli(["--help"]);
     expect(res.code).toBe(0);

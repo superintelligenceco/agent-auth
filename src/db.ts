@@ -1,9 +1,33 @@
 import { chmodSync, existsSync, mkdirSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname } from "node:path";
-import Database from "better-sqlite3";
+import type Database from "better-sqlite3";
 import { type AuditEntry, type AuditType, GENESIS_HASH, hashEntry } from "./audit.js";
 
 export type DB = Database.Database;
+
+type DatabaseConstructor = new (
+  path: string,
+  opts?: { readonly?: boolean; fileMustExist?: boolean },
+) => DB;
+
+let driver: DatabaseConstructor | undefined;
+
+/**
+ * Loads the SQLite driver. Node uses better-sqlite3. The standalone executables
+ * run on Bun, which cannot load that native addon, so they use the built-in
+ * bun:sqlite module, whose API covers everything this package calls.
+ */
+function sqlite(): DatabaseConstructor {
+  if (!driver) {
+    const require = createRequire(import.meta.url);
+    driver =
+      "Bun" in globalThis
+        ? (require("bun:sqlite") as { Database: DatabaseConstructor }).Database
+        : (require("better-sqlite3") as DatabaseConstructor);
+  }
+  return driver;
+}
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS grants (
@@ -66,16 +90,19 @@ BEGIN SELECT RAISE(ABORT, 'audit log is append-only'); END;
  */
 export function openDatabase(path: string, opts: { readonly?: boolean } = {}): DB {
   if (opts.readonly) {
+    if (!existsSync(path)) throw new Error(`database file not found: ${path}`);
+    const Database = sqlite();
     return new Database(path, { readonly: true, fileMustExist: true });
   }
   if (path !== ":memory:") {
     const dir = dirname(path);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
+  const Database = sqlite();
   const db = new Database(path);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  db.pragma("busy_timeout = 5000");
+  db.exec("PRAGMA journal_mode = WAL");
+  db.exec("PRAGMA foreign_keys = ON");
+  db.exec("PRAGMA busy_timeout = 5000");
   db.exec(SCHEMA);
   if (path !== ":memory:") {
     try {
