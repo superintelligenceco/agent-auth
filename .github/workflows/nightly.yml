@@ -1,0 +1,50 @@
+name: Nightly
+
+# Runs the full suite on every supported platform with a deeper property-based search, then
+# builds the image and runs the smoke test against it.
+
+on:
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (Node ${{ matrix.node }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+        env:
+          FC_NUM_RUNS: "20000"
+      - run: npm run --silent bench >> "$GITHUB_STEP_SUMMARY"
+
+  docker:
+    name: Docker smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build -t agent-auth:nightly .
+      - name: Smoke test
+        env:
+          AGENT_AUTH_ADMIN_TOKEN: nightly-admin-token-0123456789
+        run: |
+          docker run -d --name agent-auth -p 127.0.0.1:8787:8787 -e AGENT_AUTH_ADMIN_TOKEN agent-auth:nightly
+          scripts/smoke.sh http://127.0.0.1:8787 || { docker logs agent-auth; exit 1; }
