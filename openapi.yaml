@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: agent-auth
-  version: 0.1.0
+  version: 0.2.0
   summary: Scoped, expiring, auditable credentials for AI agents.
   description: |
     Principal endpoints (grants, approvals, audit, revoking by id) require the

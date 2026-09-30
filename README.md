@@ -3,6 +3,8 @@
 Scoped, expiring, auditable credentials for AI agents that act on a user's behalf.
 
 [![CI](https://github.com/superintelligenceco/agent-auth/actions/workflows/ci.yml/badge.svg)](https://github.com/superintelligenceco/agent-auth/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-github%20pages-blue.svg)](https://superintelligenceco.github.io/agent-auth/)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/superintelligenceco/agent-auth)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 agent-auth is a small self-hosted service and TypeScript SDK. A user (the principal) grants an agent a
@@ -11,6 +13,8 @@ short-lived token that carries explicit scopes such as `gmail:send to:*@acme.com
 An agent can derive a narrower token for a sub-agent, but never a broader one. You can revoke any
 token together with everything derived from it, and every decision lands in a hash-chained audit log
 that detects tampering.
+
+![Demo: granting, checking, attenuating and revoking a token](docs/public/demo.gif)
 
 ## Install
 
@@ -335,8 +339,7 @@ with it once a human approves.
 
 ## SDK
 
-agent-auth is not on the npm registry. Install the tarball from a release (see
-[npm package](#npm-package)) or build it from source with `npm run build`.
+Install the SDK with `npm install @superintelligenceco/agent-auth`. It needs Node.js 20 or later.
 
 ```ts
 import { AgentAuthClient } from "@superintelligenceco/agent-auth";
@@ -359,7 +362,7 @@ const res = await agent.check(token, { action: "calendar:read" });
 
 To embed the service in your own process instead of running the server, construct `AgentAuth`
 with `openDatabase()` and `generateSigningKey()` or `loadOrCreateSigningKey()`. The scope matcher
-is available on its own from `agent-auth/scope`.
+is available on its own from `@superintelligenceco/agent-auth/scope`.
 
 ## API
 
@@ -448,7 +451,6 @@ Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 - Time-window rate limits and cumulative spend budgets per grant
 - Approval notifications through webhooks
 - PostgreSQL storage
-- Published npm package and container image
 - A Python client
 
 ## Development

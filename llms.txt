@@ -1,0 +1,25 @@
+# agent-auth
+
+> Scoped, expiring, auditable credentials for AI agents that act on a user's behalf. A self-hosted service, TypeScript SDK and CLI. Apache-2.0.
+
+## Docs
+
+- [Quickstart](https://superintelligenceco.github.io/agent-auth/quickstart): run the server and issue, check, attenuate and revoke a token
+- [Concepts](https://superintelligenceco.github.io/agent-auth/concepts): principals, agents, scopes, attenuation, revocation, audit log
+- [Use it from a tool server](https://superintelligenceco.github.io/agent-auth/tool-servers): verifying tokens in an MCP or HTTP tool server
+- [Architecture](https://superintelligenceco.github.io/agent-auth/architecture)
+- [CLI reference](https://superintelligenceco.github.io/agent-auth/reference/cli)
+- [REST API reference](https://superintelligenceco.github.io/agent-auth/reference/api)
+- [FAQ](https://superintelligenceco.github.io/agent-auth/faq)
+
+## Source
+
+- [README](https://github.com/superintelligenceco/agent-auth/blob/main/README.md)
+- [OpenAPI description](https://github.com/superintelligenceco/agent-auth/blob/main/openapi.yaml)
+- [Changelog](https://github.com/superintelligenceco/agent-auth/blob/main/CHANGELOG.md)
+
+## Install
+
+- npm: `npm install @superintelligenceco/agent-auth`
+- Image: `ghcr.io/superintelligenceco/agent-auth`
+- Executables and `install.sh`: https://github.com/superintelligenceco/agent-auth/releases

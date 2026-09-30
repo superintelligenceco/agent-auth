@@ -6,8 +6,18 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-30
+
 ### Added
 
+- npm package `@superintelligenceco/agent-auth`, published with provenance.
+- `install.sh`, a `curl | sh` installer that downloads the right executable from a release.
+- Documentation site on GitHub Pages with a quickstart, concepts, FAQ, four ADRs, an architecture
+  diagram and a recorded demo.
+- Build provenance attestations, SPDX SBOMs and a cosign signature for the image, plus Trivy image
+  scanning, OpenSSF Scorecard, dependency review, actionlint and link checking.
+- Benchmark gate, nightly suite and scheduled mutation testing.
+- Makefile, pre-commit hooks, dev container, editor settings, `CITATION.cff` and `llms.txt`.
 - Multi-arch (`linux/amd64`, `linux/arm64`) server image on
   `ghcr.io/superintelligenceco/agent-auth`, tagged `:vX.Y.Z` and `:latest` on releases and `:edge`
   and `:sha-<commit>` on manual builds.
