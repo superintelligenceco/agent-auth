@@ -1,0 +1,16 @@
+services:
+  agent-auth:
+    build: .
+    image: agent-auth:local
+    restart: unless-stopped
+    ports:
+      # Bind to loopback. Put a TLS-terminating proxy in front before exposing it.
+      - "127.0.0.1:8787:8787"
+    environment:
+      AGENT_AUTH_ADMIN_TOKEN: ${AGENT_AUTH_ADMIN_TOKEN:?set AGENT_AUTH_ADMIN_TOKEN to a random string of 16+ characters}
+      AGENT_AUTH_ISSUER: ${AGENT_AUTH_ISSUER:-http://localhost:8787}
+    volumes:
+      - agent-auth-data:/data
+
+volumes:
+  agent-auth-data:
