@@ -1,4 +1,4 @@
-# Link checker settings for the Links workflow.
+# Link checker settings for the docs site (VitePress, so links are root-relative).
 exclude = [
   "^http://(127\\.0\\.0\\.1|localhost)",
   "^https://superintelligenceco\\.github\\.io/agent-auth",
@@ -8,6 +8,6 @@ exclude = [
   "^https://www\\.bestpractices\\.dev",
   "^https://www\\.npmjs\\.com/",
 ]
-exclude_path = ["node_modules", "CHANGELOG.md", "docs"]
+exclude_path = ["node_modules", "docs/node_modules", "docs/.vitepress"]
 accept = ["200..=299", "429"]
 max_retries = 3

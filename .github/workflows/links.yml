@@ -2,10 +2,10 @@ name: Links
 
 on:
   pull_request:
-    paths: ["**/*.md", ".github/workflows/links.yml", "lychee.toml"]
+    paths: ["**/*.md", ".github/workflows/links.yml", "lychee.toml", "lychee-docs.toml"]
   push:
     branches: [main]
-    paths: ["**/*.md", ".github/workflows/links.yml", "lychee.toml"]
+    paths: ["**/*.md", ".github/workflows/links.yml", "lychee.toml", "lychee-docs.toml"]
   schedule:
     - cron: "41 5 * * 1"
   workflow_dispatch:
@@ -24,6 +24,15 @@ jobs:
       - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           args: --config lychee.toml --no-progress './**/*.md'
+          fail: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The docs are a VitePress site, so root-relative links resolve against docs/ and public/.
+      - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: >-
+            --config lychee-docs.toml --no-progress --root-dir "${{ github.workspace }}/docs"
+            --fallback-extensions md --index-files index.md './docs/**/*.md'
           fail: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
