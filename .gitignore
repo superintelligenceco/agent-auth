@@ -2,6 +2,11 @@
 node_modules/
 dist/
 coverage/
+out/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+reports/
+.stryker-tmp/
 *.tsbuildinfo
 
 # Runtime data: databases and signing keys
@@ -21,6 +26,8 @@ data/
 .cache/
 .eslintcache
 .idea/
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 *.log
 .DS_Store

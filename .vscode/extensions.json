@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "biomejs.biome",
+    "vitest.explorer",
+    "github.vscode-github-actions",
+    "redhat.vscode-yaml"
+  ]
+}

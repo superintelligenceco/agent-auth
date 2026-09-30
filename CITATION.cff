@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: If you use agent-auth in your work, please cite it as below.
+title: "agent-auth: scoped, expiring, auditable credentials for AI agents"
+type: software
+authors:
+  - family-names: Fakhri
+    given-names: Raphael
+repository-code: https://github.com/superintelligenceco/agent-auth
+url: https://superintelligenceco.github.io/agent-auth/
+license: Apache-2.0
+version: 0.2.0
+date-released: 2026-09-30
+keywords:
+  - ai-agents
+  - authorization
+  - delegation
+  - capabilities
+  - audit-log

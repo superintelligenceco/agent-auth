@@ -1,0 +1,34 @@
+# Mirrors the CI lint job. Install with `pip install pre-commit && pre-commit install`,
+# or run `make setup`.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+        exclude: ^(tsconfig.*\.json|\.devcontainer/devcontainer\.json|\.vscode/.*\.json)$
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: detect-private-key
+        exclude: ^test/
+
+  - repo: https://github.com/biomejs/pre-commit
+    rev: 221fa73eac76e0540995318b44e2efb2774af990 # v2.5.14
+    hooks:
+      - id: biome-check
+        additional_dependencies: ["@biomejs/biome@2.5.14"]
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
+    hooks:
+      - id: actionlint
+
+  - repo: local
+    hooks:
+      - id: typecheck
+        name: typecheck
+        entry: npm run typecheck
+        language: system
+        pass_filenames: false
+        types_or: [ts]
