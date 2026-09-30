@@ -65,12 +65,31 @@ jobs:
           persist-credentials: false
       - run: docker build -t agent-auth:ci .
       - name: Smoke test
+        env:
+          AGENT_AUTH_ADMIN_TOKEN: ci-admin-token-0123456789
         run: |
-          docker run -d --name agent-auth -p 127.0.0.1:8787:8787 \
-            -e AGENT_AUTH_ADMIN_TOKEN=ci-admin-token-0123456789 agent-auth:ci
-          for _ in $(seq 1 20); do
-            curl -fs http://127.0.0.1:8787/healthz && exit 0
-            sleep 1
-          done
-          docker logs agent-auth
-          exit 1
+          docker run -d --name agent-auth -p 127.0.0.1:8787:8787 -e AGENT_AUTH_ADMIN_TOKEN agent-auth:ci
+          scripts/smoke.sh http://127.0.0.1:8787 || { docker logs agent-auth; exit 1; }
+
+  binary:
+    name: Standalone executable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+      - run: npm ci --ignore-scripts
+      - run: scripts/build-binaries.sh 0.0.0-ci out linux-x64
+      - name: Smoke test
+        env:
+          AGENT_AUTH_ADMIN_TOKEN: ci-admin-token-0123456789
+        run: |
+          out/agent-auth-linux-x64 serve --port 8787 --db "$RUNNER_TEMP/db.sqlite" --key "$RUNNER_TEMP/key.pem" &
+          scripts/smoke.sh http://127.0.0.1:8787

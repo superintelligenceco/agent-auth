@@ -1,0 +1,238 @@
+name: Ship
+
+# Builds everything a user can download or run:
+# - a multi-arch (amd64, arm64) server image on ghcr.io
+# - standalone agent-auth executables for Linux, macOS and Windows
+# - the npm package tarball of the SDK and CLI
+# A pushed v* tag publishes a GitHub Release with these assets and SHA256SUMS.
+# A manual run uploads the same files as workflow artifacts and pushes :edge and :sha-<commit> images.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ship-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: 1.4.2
+  IMAGE: ghcr.io/${{ github.repository }}
+  SMOKE_ADMIN_TOKEN: ship-smoke-admin-token-0123456789
+
+jobs:
+  sdk:
+    name: npm package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Check version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          if [ "$REF_TYPE" = tag ] && [ "$REF_NAME" != "v$version" ]; then
+            echo "::error::tag $REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - run: npm ci
+      - run: npm run build
+      - run: mkdir -p out && npm pack --pack-destination out
+      - name: Smoke test the tarball
+        run: |
+          mkdir /tmp/consumer && cd /tmp/consumer
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE"/out/agent-auth-*.tgz
+          node -e 'import("agent-auth").then((m) => { if (!m.AgentAuthClient) process.exit(1) })'
+          npx agent-auth --version
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sdk
+          path: out/
+          if-no-files-found: error
+
+  binaries:
+    name: Standalone executables
+    needs: sdk
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: npm ci --ignore-scripts
+      - name: Compile
+        env:
+          VERSION: ${{ needs.sdk.outputs.version }}
+        run: scripts/build-binaries.sh "$VERSION" out
+      - name: Smoke test linux-x64
+        env:
+          AGENT_AUTH_ADMIN_TOKEN: ${{ env.SMOKE_ADMIN_TOKEN }}
+        run: |
+          out/agent-auth-linux-x64 --version
+          out/agent-auth-linux-x64 serve --port 8787 --db "$RUNNER_TEMP/db.sqlite" --key "$RUNNER_TEMP/key.pem" &
+          scripts/smoke.sh http://127.0.0.1:8787
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: binaries
+          path: out/
+          if-no-files-found: error
+
+  verify-binaries:
+    name: Run on ${{ matrix.os }}
+    needs: binaries
+    runs-on: ${{ matrix.os }}
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            binary: agent-auth-macos-arm64
+          - os: windows-latest
+            binary: agent-auth-windows-x64.exe
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: binaries
+          path: out
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: src
+          sparse-checkout: scripts
+      - name: Smoke test
+        env:
+          AGENT_AUTH_ADMIN_TOKEN: ${{ env.SMOKE_ADMIN_TOKEN }}
+          BINARY: out/${{ matrix.binary }}
+        run: |
+          chmod +x "$BINARY"
+          "$BINARY" --version
+          "$BINARY" serve --port 8787 --db "$RUNNER_TEMP/db.sqlite" --key "$RUNNER_TEMP/key.pem" &
+          src/scripts/smoke.sh http://127.0.0.1:8787
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=edge,enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=sha,format=short,enable=${{ github.event_name == 'workflow_dispatch' }}
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+      - name: Smoke test the pushed image
+        env:
+          AGENT_AUTH_ADMIN_TOKEN: ${{ env.SMOKE_ADMIN_TOKEN }}
+          REF: ${{ env.IMAGE }}@${{ steps.build.outputs.digest }}
+        run: |
+          docker run -d --name agent-auth -p 127.0.0.1:8787:8787 \
+            -e AGENT_AUTH_ADMIN_TOKEN "$REF"
+          scripts/smoke.sh http://127.0.0.1:8787 || { docker logs agent-auth; exit 1; }
+      - name: Summary
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          {
+            echo "### Container image"
+            echo "Digest: \`$DIGEST\`"
+            echo '```'
+            echo "$TAGS"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  assets:
+    name: Release assets
+    needs: [sdk, binaries, verify-binaries, image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Checksums
+        working-directory: assets
+        run: |
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-assets
+          path: assets/
+          if-no-files-found: error
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.sdk.outputs.version }}
+        run: |
+          # Release notes are the CHANGELOG section for this version.
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          if ! gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --notes-file notes.md
+          fi
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber assets/*
