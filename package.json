@@ -67,7 +67,7 @@
     "mutation": "stryker run"
   },
   "dependencies": {
-    "@hono/node-server": "^1.19.17",
+    "@hono/node-server": "^2.1.1",
     "better-sqlite3": "^12.11.1",
     "hono": "^4.13.11",
     "jose": "^6.2.12",
