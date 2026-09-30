@@ -1,0 +1,576 @@
+openapi: 3.1.0
+info:
+  title: agent-auth
+  version: 0.1.0
+  summary: Scoped, expiring, auditable credentials for AI agents.
+  description: |
+    Principal endpoints (grants, approvals, audit, revoking by id) require the
+    admin token as `Authorization: Bearer <admin token>`. Agent endpoints take
+    the agent token in the request body, so a tool server can forward it
+    without extra headers.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+servers:
+  - url: http://127.0.0.1:8787
+tags:
+  - name: principal
+    description: Endpoints for the person or system that delegates authority.
+  - name: agent
+    description: Endpoints for agents and the tool servers they call.
+  - name: meta
+
+paths:
+  /healthz:
+    get:
+      tags: [meta]
+      summary: Liveness check
+      operationId: health
+      responses:
+        "200":
+          description: The server is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: { ok: { type: boolean } }
+  /.well-known/jwks.json:
+    get:
+      tags: [meta]
+      summary: Public signing keys
+      description: Use these keys to verify agent tokens offline.
+      operationId: jwks
+      responses:
+        "200":
+          description: A JSON Web Key Set with one Ed25519 key.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys: { type: array, items: { type: object } }
+
+  /v1/grants:
+    post:
+      tags: [principal]
+      summary: Create a grant
+      description: Delegates scopes to an agent and returns the grant with its root token.
+      operationId: createGrant
+      security: [{ admin: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateGrantRequest" }
+      responses:
+        "201":
+          description: Grant created.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/IssuedToken"
+                  - type: object
+                    required: [grant]
+                    properties:
+                      grant: { $ref: "#/components/schemas/Grant" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    get:
+      tags: [principal]
+      summary: List grants
+      operationId: listGrants
+      security: [{ admin: [] }]
+      parameters:
+        - name: principal
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Grants, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  grants: { type: array, items: { $ref: "#/components/schemas/Grant" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /v1/grants/{id}:
+    get:
+      tags: [principal]
+      summary: Get a grant and its tokens
+      operationId: getGrant
+      security: [{ admin: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+      responses:
+        "200":
+          description: The grant and every token issued under it.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  grant: { $ref: "#/components/schemas/Grant" }
+                  tokens: { type: array, items: { $ref: "#/components/schemas/TokenStatus" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /v1/grants/{id}/revoke:
+    post:
+      tags: [principal]
+      summary: Revoke a grant
+      description: Revokes the grant and every token issued under it.
+      operationId: revokeGrant
+      security: [{ admin: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Reason" }
+      responses:
+        "200": { $ref: "#/components/responses/Revoked" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/tokens/attenuate:
+    post:
+      tags: [agent]
+      summary: Derive a narrower token
+      description: |
+        Every requested scope must be covered by a single scope of the parent
+        token. The child expires no later than the parent, and its use limit
+        is no higher than the parent's.
+      operationId: attenuate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, scopes]
+              properties:
+                token: { type: string }
+                scopes: { type: array, items: { type: string }, minItems: 1, maxItems: 100 }
+                ttl: { $ref: "#/components/schemas/Duration" }
+                maxUses: { type: integer, minimum: 1 }
+                agent: { type: string, description: Sub-agent that receives the token. }
+      responses:
+        "201":
+          description: Child token issued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IssuedToken" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: "`scope_escalation` or `depth_exceeded`."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /v1/tokens/introspect:
+    post:
+      tags: [agent]
+      summary: Report whether a token is active
+      operationId: introspect
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties: { token: { type: string } }
+      responses:
+        "200":
+          description: Token status. Never consumes a use.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Introspection" }
+  /v1/tokens/revoke:
+    post:
+      tags: [agent, principal]
+      summary: Revoke a token and its descendants
+      description: |
+        Pass `token` to revoke the presented token. Pass `jti` with the admin
+        token to revoke any token by id.
+      operationId: revokeToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token: { type: string }
+                jti: { type: string }
+                reason: { type: string, maxLength: 500 }
+      responses:
+        "200": { $ref: "#/components/responses/Revoked" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/check:
+    post:
+      tags: [agent]
+      summary: Decide whether a token permits a request
+      description: |
+        Returns `allow`, `deny` or `approval_required`. An `allow` consumes one
+        use on every token in the chain unless `dryRun` is true. Every call is
+        written to the audit log. An invalid, expired or revoked token yields
+        `deny` with HTTP 200, so tool servers handle one response shape.
+      operationId: check
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, request]
+              properties:
+                token: { type: string }
+                request: { $ref: "#/components/schemas/AccessRequest" }
+                dryRun: { type: boolean }
+                approvalId: { type: string }
+      responses:
+        "200":
+          description: The decision.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /v1/approvals:
+    get:
+      tags: [principal]
+      summary: List approval requests
+      operationId: listApprovals
+      security: [{ admin: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/ApprovalStatus" }
+      responses:
+        "200":
+          description: Approvals, oldest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  approvals: { type: array, items: { $ref: "#/components/schemas/Approval" } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /v1/approvals/{id}/approve:
+    post:
+      tags: [principal]
+      summary: Approve a pending request
+      operationId: approve
+      security: [{ admin: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Note" }
+      responses:
+        "200":
+          description: Updated approval.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /v1/approvals/{id}/deny:
+    post:
+      tags: [principal]
+      summary: Deny a pending request
+      operationId: deny
+      security: [{ admin: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Note" }
+      responses:
+        "200":
+          description: Updated approval.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Approval" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/audit:
+    get:
+      tags: [principal]
+      summary: Read audit entries
+      operationId: listAudit
+      security: [{ admin: [] }]
+      parameters:
+        - name: after
+          in: query
+          description: Return entries with `seq` greater than this value.
+          schema: { type: integer, minimum: 0, default: 0 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 5000, default: 500 }
+      responses:
+        "200":
+          description: Entries in sequence order.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries: { type: array, items: { $ref: "#/components/schemas/AuditEntry" } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /v1/audit/verify:
+    get:
+      tags: [principal]
+      summary: Verify the audit hash chain on the server
+      description: |
+        For an independent check, download the entries with `/v1/audit` and
+        verify them yourself, for example with `agent-auth audit verify`.
+      operationId: verifyAudit
+      security: [{ admin: [] }]
+      parameters:
+        - name: head
+          in: query
+          description: A previously recorded head hash that must still be in the chain.
+          schema: { type: string }
+      responses:
+        "200":
+          description: Verification result.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditVerification" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+components:
+  securitySchemes:
+    admin:
+      type: http
+      scheme: bearer
+      description: The admin token set with AGENT_AUTH_ADMIN_TOKEN.
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  responses:
+    BadRequest:
+      description: Invalid input (`bad_request` or `invalid_scope`).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing admin token, or an invalid, expired or revoked agent token.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: No such resource.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: The approval has already been decided.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Revoked:
+      description: Ids of the tokens that this call revoked.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [revoked]
+            properties:
+              revoked: { type: array, items: { type: string } }
+  schemas:
+    Duration:
+      description: Seconds, or a string such as `90s`, `15m`, `1h` or `7d`.
+      oneOf:
+        - { type: integer, minimum: 1 }
+        - { type: string, pattern: "^\\d+[smhd]?$" }
+    Scope:
+      type: string
+      description: |
+        `<action> [<resource-glob>] [<key>:<glob> ...] [max=<n>[CUR]] [approval=required]`
+      examples:
+        - "gmail:send to:*@acme.com"
+        - "github:repo:read acme/widgets"
+        - "payments:charge max=50USD approval=required"
+    Amount:
+      type: object
+      required: [value]
+      properties:
+        value: { type: number, minimum: 0 }
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+    AccessRequest:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, description: "Concrete action such as `gmail:send`." }
+        resource: { type: string }
+        params:
+          type: object
+          additionalProperties:
+            oneOf:
+              - { type: string }
+              - { type: array, items: { type: string } }
+        amount: { $ref: "#/components/schemas/Amount" }
+    CreateGrantRequest:
+      type: object
+      required: [principal, agent, scopes, ttl]
+      properties:
+        principal: { type: string }
+        agent: { type: string }
+        scopes: { type: array, items: { $ref: "#/components/schemas/Scope" }, minItems: 1, maxItems: 100 }
+        ttl: { $ref: "#/components/schemas/Duration" }
+        maxUses: { type: integer, minimum: 1 }
+        metadata: { type: object }
+    Grant:
+      type: object
+      required: [id, principal, agent, scopes, createdAt, expiresAt, rootJti, metadata]
+      properties:
+        id: { type: string }
+        principal: { type: string }
+        agent: { type: string }
+        scopes: { type: array, items: { type: string } }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        maxUses: { type: integer }
+        rootJti: { type: string }
+        revokedAt: { type: string, format: date-time }
+        metadata: { type: object }
+    TokenClaims:
+      type: object
+      required: [iss, sub, jti, iat, exp, prn, gnt, scp, dep]
+      properties:
+        iss: { type: string, description: Issuer URL. }
+        sub: { type: string, description: Agent id. }
+        jti: { type: string, description: Token id. }
+        iat: { type: integer }
+        exp: { type: integer }
+        prn: { type: string, description: Principal id. }
+        gnt: { type: string, description: Grant id. }
+        scp: { type: array, items: { type: string }, description: Canonical scopes. }
+        par: { type: string, description: Parent token id. }
+        dep: { type: integer, description: Delegation depth. }
+        mxu: { type: integer, description: Maximum uses. }
+    IssuedToken:
+      type: object
+      required: [token, claims]
+      properties:
+        token: { type: string, description: "Compact JWS, `typ: agent-auth+jwt`, `alg: EdDSA`." }
+        claims: { $ref: "#/components/schemas/TokenClaims" }
+    TokenStatus:
+      type: object
+      required: [jti, grant, agent, scopes, depth, issuedAt, expiresAt, uses]
+      properties:
+        jti: { type: string }
+        grant: { type: string }
+        parent: { type: string }
+        agent: { type: string }
+        scopes: { type: array, items: { type: string } }
+        depth: { type: integer }
+        issuedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        maxUses: { type: integer }
+        uses: { type: integer }
+        revokedAt: { type: string, format: date-time }
+    Introspection:
+      type: object
+      required: [active]
+      properties:
+        active: { type: boolean }
+        reason: { type: string, enum: [invalid_token, expired, revoked] }
+        claims: { $ref: "#/components/schemas/TokenClaims" }
+        chain: { type: array, items: { $ref: "#/components/schemas/TokenStatus" } }
+    CheckResult:
+      type: object
+      required: [decision, reason]
+      properties:
+        decision: { type: string, enum: [allow, deny, approval_required] }
+        reason: { type: string }
+        scope: { type: string }
+        jti: { type: string }
+        agent: { type: string }
+        principal: { type: string }
+        grant: { type: string }
+        approvalId: { type: string }
+        remainingUses: { type: integer }
+    ApprovalStatus:
+      type: string
+      enum: [pending, approved, denied, consumed]
+    Approval:
+      type: object
+      required: [id, jti, request, scope, status, createdAt]
+      properties:
+        id: { type: string }
+        jti: { type: string }
+        request: { $ref: "#/components/schemas/AccessRequest" }
+        scope: { type: string }
+        status: { $ref: "#/components/schemas/ApprovalStatus" }
+        createdAt: { type: string, format: date-time }
+        decidedAt: { type: string, format: date-time }
+        note: { type: string }
+    AuditEntry:
+      type: object
+      required: [seq, ts, type, actor, data, prevHash, hash]
+      properties:
+        seq: { type: integer }
+        ts: { type: string, format: date-time }
+        type:
+          type: string
+          enum:
+            - grant.created
+            - grant.revoked
+            - token.attenuated
+            - token.attenuation_denied
+            - token.revoked
+            - check
+            - approval.requested
+            - approval.approved
+            - approval.denied
+        actor: { type: string }
+        data: { type: object }
+        prevHash: { type: string }
+        hash:
+          type: string
+          description: 'sha256(prevHash + "\n" + canonicalJson({seq, ts, type, actor, data})), hex.'
+    AuditVerification:
+      type: object
+      required: [ok, count, head]
+      properties:
+        ok: { type: boolean }
+        count: { type: integer }
+        head: { type: string }
+        firstBadSeq: { type: integer }
+        error: { type: string }
+    Reason:
+      type: object
+      properties:
+        reason: { type: string, maxLength: 500 }
+    Note:
+      type: object
+      properties:
+        note: { type: string, maxLength: 500 }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            uncovered: { type: array, items: { type: string } }
+            approvalId: { type: string }
