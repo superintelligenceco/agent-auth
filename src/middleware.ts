@@ -10,6 +10,7 @@ import { ALG } from "./keys.js";
 import { type AccessRequest, evaluate } from "./scope/index.js";
 import type { CheckResult } from "./service.js";
 import { TokenError, verifyToken } from "./tokens.js";
+import { trimTrailingSlashes } from "./url.js";
 
 /** Decides whether a presented agent token permits a request. */
 export interface Verifier {
@@ -25,7 +26,7 @@ export interface Verifier {
  * and approvals immediately, and records every check in the audit log.
  */
 export function onlineVerifier(opts: { baseUrl: string; fetch?: typeof fetch }): Verifier {
-  const base = opts.baseUrl.replace(/\/+$/, "");
+  const base = trimTrailingSlashes(opts.baseUrl);
   const f = opts.fetch ?? fetch;
   return {
     async verify(token, request, extra) {

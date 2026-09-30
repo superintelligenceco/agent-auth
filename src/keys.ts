@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import {
   type CryptoKey,
@@ -44,14 +44,31 @@ export async function importSigningKey(pem: string, kid: string): Promise<Signin
  * The key id is derived from the file so that it stays stable across restarts.
  */
 export async function loadOrCreateSigningKey(path: string): Promise<SigningKey> {
-  if (existsSync(path)) {
-    const raw = readFileSync(path, "utf8");
-    const kid = /^# kid: (\S+)$/m.exec(raw)?.[1] ?? "default";
-    return importSigningKey(raw.replace(/^#.*\n/gm, ""), kid);
-  }
+  const existing = readKeyFile(path);
+  if (existing !== undefined) return importKeyFile(existing);
   const key = await generateSigningKey();
   const pem = await exportPKCS8(key.privateKey);
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  writeFileSync(path, `# kid: ${key.kid}\n${pem}`, { mode: 0o600 });
+  try {
+    // "wx" fails if another process created the file first; use that key instead.
+    writeFileSync(path, `# kid: ${key.kid}\n${pem}`, { mode: 0o600, flag: "wx" });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+    return importKeyFile(readFileSync(path, "utf8"));
+  }
   return key;
+}
+
+function readKeyFile(path: string): string | undefined {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw err;
+  }
+}
+
+function importKeyFile(raw: string): Promise<SigningKey> {
+  const kid = /^# kid: (\S+)$/m.exec(raw)?.[1] ?? "default";
+  return importSigningKey(raw.replace(/^#.*\n/gm, ""), kid);
 }

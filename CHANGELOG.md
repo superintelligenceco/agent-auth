@@ -6,6 +6,27 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Multi-arch (`linux/amd64`, `linux/arm64`) server image on
+  `ghcr.io/superintelligenceco/agent-auth`, tagged `:vX.Y.Z` and `:latest` on releases and `:edge`
+  and `:sha-<commit>` on manual builds.
+- Standalone `agent-auth` executables for Linux x64, Linux arm64, macOS arm64 and Windows x64, built
+  with Bun, and the npm package tarball, attached to each GitHub Release with `SHA256SUMS`.
+- `agent-auth --version`.
+- `scripts/smoke.sh`, a grant, check, revoke and audit check against a running server.
+
+### Changed
+
+- `openDatabase()` uses Bun's built-in `bun:sqlite` driver when it runs on Bun.
+- Releases come from pushed `v*` tags instead of release-please.
+
+### Fixed
+
+- The SDK client and `onlineVerifier()` trim trailing slashes from `baseUrl` in linear time.
+- `loadOrCreateSigningKey()` no longer races with another process that creates the key file at the
+  same time; the later process loads the key the first one wrote.
+
 ## [0.1.0] - 2026-09-30
 
 The first release: a self-hosted service, SDK and CLI for scoped, expiring, auditable agent

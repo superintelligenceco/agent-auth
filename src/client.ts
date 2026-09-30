@@ -8,6 +8,7 @@ import type {
   IssuedToken,
   TokenStatus,
 } from "./service.js";
+import { trimTrailingSlashes } from "./url.js";
 
 export interface ClientOptions {
   /** Base URL of the agent-auth server, for example `http://localhost:8787`. */
@@ -36,7 +37,7 @@ export class AgentAuthClient {
   private readonly fetchImpl: typeof fetch;
 
   constructor(opts: ClientOptions) {
-    this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
+    this.baseUrl = trimTrailingSlashes(opts.baseUrl);
     this.adminToken = opts.adminToken;
     this.fetchImpl = opts.fetch ?? fetch;
   }
