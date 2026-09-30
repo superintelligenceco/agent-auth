@@ -29,6 +29,10 @@ updates:
     directory: /docs
     schedule:
       interval: weekly
+    ignore:
+      # 12.0.0 pulls in a lodash-es release with known high-severity advisories.
+      - dependency-name: mermaid
+        update-types: ["version-update:semver-major"]
     groups:
       docs-dependencies:
         patterns: ["*"]
