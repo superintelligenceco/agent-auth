@@ -5,6 +5,15 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # 13 requires Node 22 or later; the package supports Node 20.
+      - dependency-name: better-sqlite3
+        update-types: ["version-update:semver-major"]
+      # 5 makes npm crash while resolving the peer set with the current toolchain.
+      - dependency-name: vitest
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/coverage-v8"
+        update-types: ["version-update:semver-major"]
     groups:
       dev-dependencies:
         dependency-type: development
@@ -14,6 +23,18 @@ updates:
         update-types: [patch]
     commit-message:
       prefix: chore
+      include: scope
+
+  - package-ecosystem: npm
+    directory: /docs
+    schedule:
+      interval: weekly
+    groups:
+      docs-dependencies:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    commit-message:
+      prefix: docs
       include: scope
 
   - package-ecosystem: github-actions
@@ -32,3 +53,7 @@ updates:
       interval: weekly
     commit-message:
       prefix: chore
+    ignore:
+      # Node 26 is not an LTS release yet; the image stays on the LTS line.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
