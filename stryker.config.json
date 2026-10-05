@@ -4,6 +4,7 @@
   "vitest": { "configFile": "vitest.mutation.config.ts", "related": false },
   "mutate": ["src/scope/**/*.ts", "!src/scope/index.ts"],
   "checkers": [],
+  "tsconfigFile": "",
   "reporters": ["clear-text", "progress", "html", "json"],
   "htmlReporter": { "fileName": "reports/mutation/index.html" },
   "jsonReporter": { "fileName": "reports/mutation/mutation.json" },
