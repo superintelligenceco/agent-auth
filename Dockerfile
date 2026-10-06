@@ -18,7 +18,10 @@ WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY package.json openapi.yaml LICENSE ./
-RUN mkdir -p /data && chown node:node /data
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /data && chown node:node /data
 USER node
 VOLUME ["/data"]
 EXPOSE 8787
