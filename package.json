@@ -74,12 +74,12 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.14",
-    "@modelcontextprotocol/sdk": "^1.31.0",
+    "@biomejs/biome": "^2.5.15",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^26.6.3",
+    "@types/node": "^26.6.4",
     "@vitest/coverage-v8": "^4.1.11",
     "fast-check": "^4.10.2",
     "tsx": "^4.23.15",
