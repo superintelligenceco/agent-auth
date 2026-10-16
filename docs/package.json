@@ -9,7 +9,7 @@
     "preview": "vitepress preview"
   },
   "devDependencies": {
-    "mermaid": "^12.2.0",
+    "mermaid": "^11.17.2",
     "vitepress": "^1.6.4",
     "vitepress-plugin-mermaid": "^2.0.17",
     "yaml": "^2.9.1"
@@ -17,6 +17,7 @@
   "overrides": {
     "vite": "^7.3.5",
     "esbuild": "^0.25.0",
-    "launch-editor": "^2.14.1"
+    "launch-editor": "^2.14.1",
+    "katex": "^0.18.10"
   }
 }
